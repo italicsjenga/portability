@@ -1,7 +1,11 @@
 use crate::VK_NULL_HANDLE;
-#[cfg(feature = "nightly")]
-use std::{collections::HashMap, hash::BuildHasherDefault, sync::{Arc, Mutex}};
 use std::{borrow, fmt, ops};
+#[cfg(feature = "nightly")]
+use std::{
+    collections::HashMap,
+    hash::BuildHasherDefault,
+    sync::{Arc, Mutex},
+};
 
 use copyless::{BoxAllocation, BoxHelper};
 
@@ -94,7 +98,7 @@ impl<T> Handle<T> {
 
 impl<T> Clone for Handle<T> {
     fn clone(&self) -> Self {
-        Handle(self.0)
+        *self
     }
 }
 
@@ -192,7 +196,7 @@ mod dispatch {
 
     impl<T> Clone for DispatchHandle<T> {
         fn clone(&self) -> Self {
-            DispatchHandle(self.0)
+            *self
         }
     }
 

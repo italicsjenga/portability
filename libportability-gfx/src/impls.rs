@@ -1,6 +1,6 @@
 use super::*;
 
-use hal::{
+use gfx_hal::{
     adapter::PhysicalDevice,
     command::CommandBuffer,
     device::{Device, WaitFor},
@@ -40,17 +40,17 @@ unsafe fn make_slice_mut<'a, T: 'a>(pointer: *mut T, count: usize) -> &'a mut [T
     }
 }
 
-fn map_oom(oom: hal::device::OutOfMemory) -> VkResult {
+fn map_oom(oom: gfx_hal::device::OutOfMemory) -> VkResult {
     match oom {
-        hal::device::OutOfMemory::Host => VkResult::VK_ERROR_OUT_OF_HOST_MEMORY,
-        hal::device::OutOfMemory::Device => VkResult::VK_ERROR_OUT_OF_DEVICE_MEMORY,
+        gfx_hal::device::OutOfMemory::Host => VkResult::VK_ERROR_OUT_OF_HOST_MEMORY,
+        gfx_hal::device::OutOfMemory::Device => VkResult::VK_ERROR_OUT_OF_DEVICE_MEMORY,
     }
 }
 
-fn map_alloc_error(alloc_error: hal::device::AllocationError) -> VkResult {
+fn map_alloc_error(alloc_error: gfx_hal::device::AllocationError) -> VkResult {
     match alloc_error {
-        hal::device::AllocationError::OutOfMemory(oom) => map_oom(oom),
-        hal::device::AllocationError::TooManyObjects => VkResult::VK_ERROR_TOO_MANY_OBJECTS,
+        gfx_hal::device::AllocationError::OutOfMemory(oom) => map_oom(oom),
+        gfx_hal::device::AllocationError::TooManyObjects => VkResult::VK_ERROR_TOO_MANY_OBJECTS,
     }
 }
 
@@ -219,20 +219,22 @@ pub unsafe extern "C" fn gfxGetPhysicalDeviceQueueFamilyProperties(
     for (ref mut out, ref family) in output.iter_mut().zip(families.iter()) {
         **out = VkQueueFamilyProperties {
             queueFlags: match family.queue_type() {
-                hal::queue::QueueType::General => {
+                gfx_hal::queue::QueueType::General => {
                     VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT as u32
                         | VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT as u32
                         | VkQueueFlagBits::VK_QUEUE_TRANSFER_BIT as u32
                 }
-                hal::queue::QueueType::Graphics => {
+                gfx_hal::queue::QueueType::Graphics => {
                     VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT as u32
                         | VkQueueFlagBits::VK_QUEUE_TRANSFER_BIT as u32
                 }
-                hal::queue::QueueType::Compute => {
+                gfx_hal::queue::QueueType::Compute => {
                     VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT as u32
                         | VkQueueFlagBits::VK_QUEUE_TRANSFER_BIT as u32
                 }
-                hal::queue::QueueType::Transfer => VkQueueFlagBits::VK_QUEUE_TRANSFER_BIT as u32,
+                gfx_hal::queue::QueueType::Transfer => {
+                    VkQueueFlagBits::VK_QUEUE_TRANSFER_BIT as u32
+                }
             },
             queueCount: family.max_queues() as _,
             timestampValidBits: 0, //TODO
@@ -288,16 +290,16 @@ pub unsafe extern "C" fn gfxGetPhysicalDeviceFeatures2KHR(
                     .as_mut()
                     .unwrap();
                 data.events = VK_TRUE;
-                if features.contains(hal::Features::TRIANGLE_FAN) {
+                if features.contains(gfx_hal::Features::TRIANGLE_FAN) {
                     data.triangleFans = VK_TRUE;
                 }
-                if features.contains(hal::Features::SEPARATE_STENCIL_REF_VALUES) {
+                if features.contains(gfx_hal::Features::SEPARATE_STENCIL_REF_VALUES) {
                     data.separateStencilMaskRef = VK_TRUE;
                 }
-                if features.contains(hal::Features::SAMPLER_MIP_LOD_BIAS) {
+                if features.contains(gfx_hal::Features::SAMPLER_MIP_LOD_BIAS) {
                     data.samplerMipLodBias = VK_TRUE;
                 }
-                if features.contains(hal::Features::MUTABLE_COMPARISON_SAMPLER) {
+                if features.contains(gfx_hal::Features::MUTABLE_COMPARISON_SAMPLER) {
                     data.mutableComparisonSamplers = VK_TRUE;
                 }
                 //TODO: turn these into a feature flags
@@ -446,7 +448,7 @@ pub unsafe extern "C" fn gfxGetPhysicalDeviceProperties(
         mem::transmute(name)
     };
 
-    use hal::adapter::DeviceType;
+    use gfx_hal::adapter::DeviceType;
     let device_type = match adapter.info.device_type {
         DeviceType::IntegratedGpu => VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU,
         DeviceType::DiscreteGpu => VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU,
@@ -1254,7 +1256,7 @@ pub unsafe extern "C" fn gfxAllocateMemory(
     let memory = gpu
         .device
         .allocate_memory(
-            hal::MemoryTypeId(info.memoryTypeIndex as _),
+            gfx_hal::MemoryTypeId(info.memoryTypeIndex as _),
             info.allocationSize,
         )
         .unwrap(); // TODO:
@@ -1281,7 +1283,7 @@ pub unsafe extern "C" fn gfxMapMemory(
     _flags: VkMemoryMapFlags,
     ppData: *mut *mut c_void,
 ) -> VkResult {
-    let range = hal::memory::Segment {
+    let range = gfx_hal::memory::Segment {
         offset,
         size: if size == VK_WHOLE_SIZE as VkDeviceSize {
             None
@@ -1306,7 +1308,7 @@ pub unsafe extern "C" fn gfxFlushMappedMemoryRanges(
     let ranges = slice::from_raw_parts(pMemoryRanges, memoryRangeCount as _)
         .iter()
         .map(|r| {
-            let range = hal::memory::Segment {
+            let range = gfx_hal::memory::Segment {
                 offset: r.offset,
                 size: if r.size == VK_WHOLE_SIZE as VkDeviceSize {
                     None
@@ -1331,7 +1333,7 @@ pub unsafe extern "C" fn gfxInvalidateMappedMemoryRanges(
     let ranges = slice::from_raw_parts(pMemoryRanges, memoryRangeCount as _)
         .iter()
         .map(|r| {
-            let range = hal::memory::Segment {
+            let range = gfx_hal::memory::Segment {
                 offset: r.offset,
                 size: if r.size == VK_WHOLE_SIZE as VkDeviceSize {
                     None
@@ -1534,7 +1536,7 @@ pub unsafe extern "C" fn gfxGetFenceStatus(gpu: VkDevice, fence: VkFence) -> VkR
         match gpu.device.get_fence_status(&fence.raw) {
             Ok(true) => VkResult::VK_SUCCESS,
             Ok(false) => VkResult::VK_NOT_READY,
-            Err(hal::device::DeviceLost) => VkResult::VK_ERROR_DEVICE_LOST,
+            Err(gfx_hal::device::DeviceLost) => VkResult::VK_ERROR_DEVICE_LOST,
         }
     }
 }
@@ -1569,8 +1571,8 @@ pub unsafe extern "C" fn gfxWaitForFences(
     match result {
         Ok(true) => VkResult::VK_SUCCESS,
         Ok(false) => VkResult::VK_TIMEOUT,
-        Err(hal::device::WaitError::OutOfMemory(oom)) => map_oom(oom),
-        Err(hal::device::WaitError::DeviceLost(hal::device::DeviceLost)) => {
+        Err(gfx_hal::device::WaitError::OutOfMemory(oom)) => map_oom(oom),
+        Err(gfx_hal::device::WaitError::DeviceLost(gfx_hal::device::DeviceLost)) => {
             VkResult::VK_ERROR_DEVICE_LOST
         }
     }
@@ -1633,8 +1635,8 @@ pub unsafe extern "C" fn gfxGetEventStatus(gpu: VkDevice, event: VkEvent) -> VkR
     match gpu.device.get_event_status(&event) {
         Ok(true) => VkResult::VK_EVENT_SET,
         Ok(false) => VkResult::VK_EVENT_RESET,
-        Err(hal::device::WaitError::OutOfMemory(oom)) => map_oom(oom),
-        Err(hal::device::WaitError::DeviceLost(hal::device::DeviceLost)) => {
+        Err(gfx_hal::device::WaitError::OutOfMemory(oom)) => map_oom(oom),
+        Err(gfx_hal::device::WaitError::DeviceLost(gfx_hal::device::DeviceLost)) => {
             VkResult::VK_ERROR_DEVICE_LOST
         }
     }
@@ -1721,7 +1723,7 @@ pub unsafe extern "C" fn gfxCreateBuffer(
     let info = &*pCreateInfo;
     assert_eq!(info.sharingMode, VkSharingMode::VK_SHARING_MODE_EXCLUSIVE); // TODO
 
-    let sparse_flags = hal::memory::SparseFlags::from_bits_truncate(info.flags);
+    let sparse_flags = gfx_hal::memory::SparseFlags::from_bits_truncate(info.flags);
     let buffer = gpu
         .device
         .create_buffer(info.size, conv::map_buffer_usage(info.usage), sparse_flags)
@@ -1750,7 +1752,7 @@ pub unsafe extern "C" fn gfxCreateBufferView(
     let view_result = gpu.device.create_buffer_view(
         &info.buffer,
         conv::map_format(info.format),
-        hal::buffer::SubRange {
+        gfx_hal::buffer::SubRange {
             offset: info.offset,
             size: if info.range as i32 == VK_WHOLE_SIZE {
                 None
@@ -1794,7 +1796,7 @@ pub unsafe extern "C" fn gfxCreateImage(
         warn!("unexpected initial layout: {:?}", info.initialLayout);
     }
 
-    let sparse_flags = hal::memory::SparseFlags::from_bits_truncate(info.flags);
+    let sparse_flags = gfx_hal::memory::SparseFlags::from_bits_truncate(info.flags);
     let kind = conv::map_image_kind(
         info.imageType,
         info.extent,
@@ -1805,7 +1807,7 @@ pub unsafe extern "C" fn gfxCreateImage(
     let view_caps = conv::map_image_create_flags(info.flags);
     let format = conv::map_format(info.format)
         .unwrap_or_else(|| panic!("Unsupported image format: {:?}", info.format));
-    let fb_attachment = hal::image::FramebufferAttachment {
+    let fb_attachment = gfx_hal::image::FramebufferAttachment {
         usage,
         view_caps,
         format,
@@ -1943,7 +1945,7 @@ pub unsafe extern "C" fn gfxCreateShaderModule(
         let base = std::path::PathBuf::from(value.as_str());
         if base.is_dir() {
             let code_u8 = slice::from_raw_parts(info.pCode as *const u8, info.codeSize);
-            for i in 1 .. {
+            for i in 1.. {
                 let full = base.join(format!("{}.spv", i));
                 if !full.exists() {
                     std::fs::write(full, code_u8).unwrap();
@@ -2017,7 +2019,7 @@ pub unsafe extern "C" fn gfxGetPipelineCacheData(
 ) -> VkResult {
     let data = match gpu.device.get_pipeline_cache_data(&pipelineCache) {
         Ok(data) => data,
-        Err(oom) => return map_oom(oom)
+        Err(oom) => return map_oom(oom),
     };
 
     if pData.is_null() {
@@ -2207,7 +2209,7 @@ pub unsafe extern "C" fn gfxCreateGraphicsPipelines(
                             "Primitive topology {:?} is not supported",
                             input_state.topology
                         );
-                        (hal::pso::Primitive::PointList, false)
+                        (gfx_hal::pso::Primitive::PointList, false)
                     }
                 };
 
@@ -2711,18 +2713,18 @@ pub unsafe extern "C" fn gfxCreateSampler(
     pSampler: *mut VkSampler,
 ) -> VkResult {
     let info = &*pCreateInfo;
-    let gfx_info = hal::image::SamplerDesc {
+    let gfx_info = gfx_hal::image::SamplerDesc {
         min_filter: conv::map_filter(info.minFilter),
         mag_filter: conv::map_filter(info.magFilter),
         mip_filter: conv::map_mipmap_filter(info.mipmapMode),
-        reduction_mode: hal::image::ReductionMode::WeightedAverage,
+        reduction_mode: gfx_hal::image::ReductionMode::WeightedAverage,
         wrap_mode: (
             conv::map_wrap_mode(info.addressModeU),
             conv::map_wrap_mode(info.addressModeV),
             conv::map_wrap_mode(info.addressModeW),
         ),
-        lod_bias: hal::image::Lod(info.mipLodBias),
-        lod_range: hal::image::Lod(info.minLod)..hal::image::Lod(info.maxLod),
+        lod_bias: gfx_hal::image::Lod(info.mipLodBias),
+        lod_range: gfx_hal::image::Lod(info.minLod)..gfx_hal::image::Lod(info.maxLod),
         comparison: if info.compareEnable == VK_TRUE {
             Some(conv::map_compare_op(info.compareOp))
         } else {
@@ -2986,7 +2988,7 @@ impl<'a> Iterator for DescriptorIter<'a> {
                         .map(|view| pso::Descriptor::TexelBuffer(&**view)),
                     pso::BufferDescriptorFormat::Structured { .. } => {
                         self.buffer_infos.next().map(|buffer| {
-                            let range = hal::buffer::SubRange {
+                            let range = gfx_hal::buffer::SubRange {
                                 offset: buffer.offset,
                                 size: if buffer.range as i32 == VK_WHOLE_SIZE {
                                     None
@@ -3073,7 +3075,7 @@ pub unsafe extern "C" fn gfxCreateFramebuffer(
     pFramebuffer: *mut VkFramebuffer,
 ) -> VkResult {
     let info = &*pCreateInfo;
-    let extent = hal::image::Extent {
+    let extent = gfx_hal::image::Extent {
         width: info.width,
         height: info.height,
         depth: info.layers,
@@ -3108,7 +3110,7 @@ pub unsafe extern "C" fn gfxCreateFramebuffer(
                 &*info.renderPass,
                 raw_attachment_infos
                     .iter()
-                    .map(|ai| hal::image::FramebufferAttachment {
+                    .map(|ai| gfx_hal::image::FramebufferAttachment {
                         usage: conv::map_image_usage(ai.usage),
                         view_caps: conv::map_image_create_flags(ai.flags),
                         //TODO: properly support view format lists!
@@ -3336,7 +3338,7 @@ pub unsafe extern "C" fn gfxCreateCommandPool(
     _pAllocator: *const VkAllocationCallbacks,
     pCommandPool: *mut VkCommandPool,
 ) -> VkResult {
-    use hal::pool::CommandPoolCreateFlags;
+    use gfx_hal::pool::CommandPoolCreateFlags;
 
     let info = &*pCreateInfo;
     let family = queue::QueueFamilyId(info.queueFamilyIndex as _);
@@ -3600,7 +3602,7 @@ pub unsafe extern "C" fn gfxCmdBindIndexBuffer(
 ) {
     commandBuffer.bind_index_buffer(
         &*buffer,
-        hal::buffer::SubRange { offset, size: None },
+        gfx_hal::buffer::SubRange { offset, size: None },
         conv::map_index_type(indexType),
     );
 }
@@ -3619,7 +3621,7 @@ pub unsafe extern "C" fn gfxCmdBindVertexBuffers(
     let views = buffers
         .into_iter()
         .zip(offsets)
-        .map(|(buffer, &offset)| (&**buffer, hal::buffer::SubRange { offset, size: None }));
+        .map(|(buffer, &offset)| (&**buffer, gfx_hal::buffer::SubRange { offset, size: None }));
 
     commandBuffer.bind_vertex_buffers(firstBinding, views);
 }
@@ -3873,7 +3875,7 @@ pub unsafe extern "C" fn gfxCmdFillBuffer(
     size: VkDeviceSize,
     data: u32,
 ) {
-    let range = hal::buffer::SubRange {
+    let range = gfx_hal::buffer::SubRange {
         offset: dstOffset,
         size: if size == VK_WHOLE_SIZE as VkDeviceSize {
             None
@@ -4051,7 +4053,7 @@ fn make_barriers<'a>(
         states: conv::map_buffer_access(b.srcAccessMask)..conv::map_buffer_access(b.dstAccessMask),
         target: &*b.buffer,
         families: None,
-        range: hal::buffer::SubRange {
+        range: gfx_hal::buffer::SubRange {
             offset: b.offset,
             size: if b.size as i32 == VK_WHOLE_SIZE {
                 None
@@ -4141,7 +4143,7 @@ pub unsafe extern "C" fn gfxCmdBeginQuery(
     query: u32,
     flags: VkQueryControlFlags,
 ) {
-    let query = hal::query::Query {
+    let query = gfx_hal::query::Query {
         pool: &*queryPool,
         id: query,
     };
@@ -4153,7 +4155,7 @@ pub unsafe extern "C" fn gfxCmdEndQuery(
     queryPool: VkQueryPool,
     query: u32,
 ) {
-    let query = hal::query::Query {
+    let query = gfx_hal::query::Query {
         pool: &*queryPool,
         id: query,
     };
@@ -4175,7 +4177,7 @@ pub unsafe extern "C" fn gfxCmdWriteTimestamp(
     queryPool: VkQueryPool,
     query: u32,
 ) {
-    let query = hal::query::Query {
+    let query = gfx_hal::query::Query {
         pool: &*queryPool,
         id: query,
     };
@@ -4270,23 +4272,25 @@ pub unsafe extern "C" fn gfxCmdBeginRenderPass(
         .iter()
         // HAL and Vulkan clear value union sharing same memory representation
         .map(|cv| mem::transmute::<_, com::ClearValue>(*cv))
-        .chain((info.clearValueCount..).map(|_| hal::command::ClearValue::default()));
+        .chain((info.clearValueCount..).map(|_| gfx_hal::command::ClearValue::default()));
     let attachments = image_views
         .iter()
         .zip(clear_values)
-        .map(|(view, clear_value)| hal::command::RenderAttachmentInfo {
-            image_view: match **view {
-                ImageView::Native { ref raw, .. } => raw,
-                ImageView::SwapchainFrame {
-                    ref swapchain,
-                    frame,
-                } => swapchain.active[frame as usize]
-                    .as_ref()
-                    .expect("Swapchain frame is not acquired!")
-                    .borrow(),
+        .map(
+            |(view, clear_value)| gfx_hal::command::RenderAttachmentInfo {
+                image_view: match **view {
+                    ImageView::Native { ref raw, .. } => raw,
+                    ImageView::SwapchainFrame {
+                        ref swapchain,
+                        frame,
+                    } => swapchain.active[frame as usize]
+                        .as_ref()
+                        .expect("Swapchain frame is not acquired!")
+                        .borrow(),
+                },
+                clear_value,
             },
-            clear_value,
-        });
+        );
     let contents = conv::map_subpass_contents(contents);
 
     commandBuffer.begin_render_pass(
@@ -4536,7 +4540,7 @@ pub unsafe extern "C" fn gfxCreateSwapchainKHR(
         VkSharingMode::VK_SHARING_MODE_EXCLUSIVE
     ); // TODO
 
-    let config = hal::window::SwapchainConfig {
+    let config = gfx_hal::window::SwapchainConfig {
         present_mode: conv::map_present_mode(info.presentMode),
         composite_alpha_mode: conv::map_composite_alpha(info.compositeAlpha),
         format: conv::map_format(info.imageFormat).unwrap(),
@@ -4570,13 +4574,16 @@ pub unsafe extern "C" fn gfxCreateSwapchainKHR(
             VkResult::VK_SUCCESS
         }
         Err(err) => {
-            use hal::window::SwapchainError as Se;
+            use gfx_hal::window::SwapchainError as Se;
             match err {
                 Se::OutOfMemory(oom) => map_oom(oom),
-                Se::DeviceLost(hal::device::DeviceLost) => VkResult::VK_ERROR_DEVICE_LOST,
-                Se::SurfaceLost(hal::window::SurfaceLost) => VkResult::VK_ERROR_SURFACE_LOST_KHR,
+                Se::DeviceLost(gfx_hal::device::DeviceLost) => VkResult::VK_ERROR_DEVICE_LOST,
+                Se::SurfaceLost(gfx_hal::window::SurfaceLost) => {
+                    VkResult::VK_ERROR_SURFACE_LOST_KHR
+                }
                 Se::WindowInUse => VkResult::VK_ERROR_NATIVE_WINDOW_IN_USE_KHR,
                 Se::Unknown => VkResult::VK_ERROR_UNKNOWN,
+                Se::WrongThread => VkResult::VK_ERROR_UNKNOWN,
             }
         }
     }
@@ -4925,12 +4932,12 @@ pub unsafe extern "C" fn gfxAcquireNextImageKHR(
                 None => VkResult::VK_SUCCESS,
             }
         }
-        Err(hal::window::AcquireError::NotReady { timeout: false }) => VkResult::VK_NOT_READY,
-        Err(hal::window::AcquireError::NotReady { timeout: true }) => VkResult::VK_TIMEOUT,
-        Err(hal::window::AcquireError::OutOfDate(_)) => VkResult::VK_ERROR_OUT_OF_DATE_KHR,
-        Err(hal::window::AcquireError::SurfaceLost(_)) => VkResult::VK_ERROR_SURFACE_LOST_KHR,
-        Err(hal::window::AcquireError::DeviceLost(_)) => VkResult::VK_ERROR_DEVICE_LOST,
-        Err(hal::window::AcquireError::OutOfMemory(oom)) => map_oom(oom),
+        Err(gfx_hal::window::AcquireError::NotReady { timeout: false }) => VkResult::VK_NOT_READY,
+        Err(gfx_hal::window::AcquireError::NotReady { timeout: true }) => VkResult::VK_TIMEOUT,
+        Err(gfx_hal::window::AcquireError::OutOfDate(_)) => VkResult::VK_ERROR_OUT_OF_DATE_KHR,
+        Err(gfx_hal::window::AcquireError::SurfaceLost(_)) => VkResult::VK_ERROR_SURFACE_LOST_KHR,
+        Err(gfx_hal::window::AcquireError::DeviceLost(_)) => VkResult::VK_ERROR_DEVICE_LOST,
+        Err(gfx_hal::window::AcquireError::OutOfMemory(oom)) => map_oom(oom),
     }
 }
 #[inline]

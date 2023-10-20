@@ -1,4 +1,4 @@
-use hal::{
+use gfx_hal::{
     buffer, command, device, format, image, memory, pass, pso, pso::PatchSize, pso::Primitive,
     query, window, Features, IndexType, Limits,
 };
@@ -394,7 +394,7 @@ pub fn map_view_kind(ty: VkImageViewType) -> image::ViewKind {
 }
 
 pub fn map_image_layout(layout: VkImageLayout) -> image::Layout {
-    use hal::image::Layout::*;
+    use gfx_hal::image::Layout::*;
     match layout {
         VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED => Undefined,
         VkImageLayout::VK_IMAGE_LAYOUT_GENERAL => General,
@@ -680,7 +680,7 @@ pub fn map_dependency_flags(dependencies: VkDependencyFlags) -> memory::Dependen
 }
 
 pub fn map_err_device_creation(err: device::CreationError) -> VkResult {
-    use hal::device::OutOfMemory::{Device, Host};
+    use gfx_hal::device::OutOfMemory::{Device, Host};
     match err {
         device::CreationError::OutOfMemory(Host) => VkResult::VK_ERROR_OUT_OF_HOST_MEMORY,
         device::CreationError::OutOfMemory(Device) => VkResult::VK_ERROR_OUT_OF_DEVICE_MEMORY,
@@ -997,8 +997,8 @@ pub fn map_pipeline_statistics(flags: VkQueryPipelineStatisticFlags) -> query::P
 }
 
 #[inline]
-pub fn map_subresource(subresource: VkImageSubresource) -> hal::image::Subresource {
-    hal::image::Subresource {
+pub fn map_subresource(subresource: VkImageSubresource) -> gfx_hal::image::Subresource {
+    gfx_hal::image::Subresource {
         aspects: map_aspect(subresource.aspectMask),
         level: subresource.mipLevel as _,
         layer: subresource.arrayLayer as _,
@@ -1008,8 +1008,8 @@ pub fn map_subresource(subresource: VkImageSubresource) -> hal::image::Subresour
 #[inline]
 pub fn map_subresource_layers(
     subresource: VkImageSubresourceLayers,
-) -> hal::image::SubresourceLayers {
-    hal::image::SubresourceLayers {
+) -> gfx_hal::image::SubresourceLayers {
+    gfx_hal::image::SubresourceLayers {
         aspects: map_aspect(subresource.aspectMask),
         level: subresource.mipLevel as _,
         layers: subresource.baseArrayLayer as _
@@ -1018,8 +1018,10 @@ pub fn map_subresource_layers(
 }
 
 #[inline]
-pub fn map_subresource_range(subresource: VkImageSubresourceRange) -> hal::image::SubresourceRange {
-    hal::image::SubresourceRange {
+pub fn map_subresource_range(
+    subresource: VkImageSubresourceRange,
+) -> gfx_hal::image::SubresourceRange {
+    gfx_hal::image::SubresourceRange {
         aspects: map_aspect(subresource.aspectMask),
         level_start: subresource.baseMipLevel as _,
         level_count: if subresource.levelCount == VK_REMAINING_MIP_LEVELS as _ {

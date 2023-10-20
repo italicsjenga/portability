@@ -49,30 +49,30 @@ pub use crate::impls::*;
 
 // Vulkan objects
 pub type VkInstance = Handle<RawInstance>;
-pub type VkPhysicalDevice = Handle<hal::adapter::Adapter<B>>;
+pub type VkPhysicalDevice = Handle<gfx_hal::adapter::Adapter<B>>;
 pub type VkDevice = DispatchHandle<Gpu<B>>;
 pub type VkQueue = DispatchHandle<Queue<B>>;
 pub type VkCommandPool = Handle<CommandPool<B>>;
-pub type VkCommandBuffer = DispatchHandle<<B as hal::Backend>::CommandBuffer>;
-pub type VkDeviceMemory = Handle<<B as hal::Backend>::Memory>;
-pub type VkDescriptorSetLayout = Handle<<B as hal::Backend>::DescriptorSetLayout>;
-pub type VkPipelineLayout = Handle<<B as hal::Backend>::PipelineLayout>;
+pub type VkCommandBuffer = DispatchHandle<<B as gfx_hal::Backend>::CommandBuffer>;
+pub type VkDeviceMemory = Handle<<B as gfx_hal::Backend>::Memory>;
+pub type VkDescriptorSetLayout = Handle<<B as gfx_hal::Backend>::DescriptorSetLayout>;
+pub type VkPipelineLayout = Handle<<B as gfx_hal::Backend>::PipelineLayout>;
 pub type VkDescriptorPool = Handle<DescriptorPool<B>>;
-pub type VkDescriptorSet = Handle<<B as hal::Backend>::DescriptorSet>;
-pub type VkSampler = Handle<<B as hal::Backend>::Sampler>;
-pub type VkBufferView = Handle<<B as hal::Backend>::BufferView>;
-pub type VkShaderModule = Handle<<B as hal::Backend>::ShaderModule>;
+pub type VkDescriptorSet = Handle<<B as gfx_hal::Backend>::DescriptorSet>;
+pub type VkSampler = Handle<<B as gfx_hal::Backend>::Sampler>;
+pub type VkBufferView = Handle<<B as gfx_hal::Backend>::BufferView>;
+pub type VkShaderModule = Handle<<B as gfx_hal::Backend>::ShaderModule>;
 pub type VkImage = Handle<Image<B>>;
 pub type VkImageView = Handle<ImageView>;
-pub type VkBuffer = Handle<<B as hal::Backend>::Buffer>;
+pub type VkBuffer = Handle<<B as gfx_hal::Backend>::Buffer>;
 pub type VkSemaphore = Handle<Semaphore<B>>;
-pub type VkEvent = Handle<<B as hal::Backend>::Event>;
+pub type VkEvent = Handle<<B as gfx_hal::Backend>::Event>;
 pub type VkFence = Handle<Fence<B>>;
-pub type VkRenderPass = Handle<<B as hal::Backend>::RenderPass>;
+pub type VkRenderPass = Handle<<B as gfx_hal::Backend>::RenderPass>;
 pub type VkFramebuffer = Handle<Framebuffer>;
 pub type VkPipeline = Handle<Pipeline<B>>;
-pub type VkPipelineCache = Handle<<B as hal::Backend>::PipelineCache>;
-pub type VkQueryPool = Handle<<B as hal::Backend>::QueryPool>;
+pub type VkPipelineCache = Handle<<B as gfx_hal::Backend>::PipelineCache>;
+pub type VkQueryPool = Handle<<B as gfx_hal::Backend>::QueryPool>;
 
 pub type QueueFamilyIndex = u32;
 
@@ -82,7 +82,7 @@ pub struct RawInstance {
     pub enabled_extensions: Vec<String>,
 }
 
-pub struct Gpu<B: hal::Backend> {
+pub struct Gpu<B: gfx_hal::Backend> {
     device: B::Device,
     queues: HashMap<QueueFamilyIndex, Vec<VkQueue>>,
     enabled_extensions: Vec<String>,
@@ -92,7 +92,7 @@ pub struct Gpu<B: hal::Backend> {
     capturing: *mut (),
 }
 
-impl<B: hal::Backend> Gpu<B> {
+impl<B: gfx_hal::Backend> Gpu<B> {
     fn has_extension(&self, extension: &[u8]) -> bool {
         self.enabled_extensions
             .iter()
@@ -100,33 +100,33 @@ impl<B: hal::Backend> Gpu<B> {
     }
 }
 
-pub struct Queue<B: hal::Backend> {
+pub struct Queue<B: gfx_hal::Backend> {
     raw: B::Queue,
     temp_semaphores: Vec<(VkPipelineStageFlags, VkSemaphore)>,
 }
 
-pub struct DescriptorPool<B: hal::Backend> {
+pub struct DescriptorPool<B: gfx_hal::Backend> {
     raw: B::DescriptorPool,
     temp_sets: Vec<B::DescriptorSet>,
     set_handles: Option<Vec<VkDescriptorSet>>,
 }
 
-pub enum Pipeline<B: hal::Backend> {
+pub enum Pipeline<B: gfx_hal::Backend> {
     Graphics(B::GraphicsPipeline),
     Compute(B::ComputePipeline),
 }
 
-pub enum Image<B: hal::Backend> {
+pub enum Image<B: gfx_hal::Backend> {
     Native {
         raw: B::Image,
         //mip_levels: u32,
         //array_layers: u32,
-        fb_attachment: hal::image::FramebufferAttachment,
-        usage: hal::image::Usage,
+        fb_attachment: gfx_hal::image::FramebufferAttachment,
+        usage: gfx_hal::image::Usage,
     },
     SwapchainFrame {
         swapchain: VkSwapchainKHR,
-        frame: hal::window::SwapImageIndex,
+        frame: gfx_hal::window::SwapImageIndex,
     },
 }
 
@@ -134,7 +134,7 @@ pub enum Image<B: hal::Backend> {
 struct UnexpectedSwapchainImage;
 
 impl Image<B> {
-    fn as_native(&self) -> Result<&<B as hal::Backend>::Image, UnexpectedSwapchainImage> {
+    fn as_native(&self) -> Result<&<B as gfx_hal::Backend>::Image, UnexpectedSwapchainImage> {
         //use std::borrow::Borrow;
         match *self {
             Image::Native { ref raw, .. } => Ok(raw),
@@ -147,24 +147,24 @@ impl Image<B> {
 
 pub enum ImageView {
     Native {
-        raw: <B as hal::Backend>::ImageView,
-        fb_attachment: hal::image::FramebufferAttachment,
+        raw: <B as gfx_hal::Backend>::ImageView,
+        fb_attachment: gfx_hal::image::FramebufferAttachment,
     },
     SwapchainFrame {
         swapchain: VkSwapchainKHR,
-        frame: hal::window::SwapImageIndex,
+        frame: gfx_hal::window::SwapImageIndex,
     },
 }
 
 impl ImageView {
-    fn as_native(&self) -> Result<&<B as hal::Backend>::ImageView, UnexpectedSwapchainImage> {
+    fn as_native(&self) -> Result<&<B as gfx_hal::Backend>::ImageView, UnexpectedSwapchainImage> {
         match *self {
             ImageView::Native { ref raw, .. } => Ok(raw),
             ImageView::SwapchainFrame { .. } => Err(UnexpectedSwapchainImage),
         }
     }
 
-    fn framebuffer_attachment(&self) -> hal::image::FramebufferAttachment {
+    fn framebuffer_attachment(&self) -> gfx_hal::image::FramebufferAttachment {
         match *self {
             Self::Native {
                 raw: _,
@@ -179,22 +179,22 @@ impl ImageView {
 }
 
 pub struct Framebuffer {
-    raw: <B as hal::Backend>::Framebuffer,
+    raw: <B as gfx_hal::Backend>::Framebuffer,
     // If none, the VkFramebuffer is image-less
     image_views: Option<Box<[VkImageView]>>,
 }
 
-pub struct Semaphore<B: hal::Backend> {
+pub struct Semaphore<B: gfx_hal::Backend> {
     raw: B::Semaphore,
     is_fake: Cell<bool>,
 }
 
-pub struct Fence<B: hal::Backend> {
+pub struct Fence<B: gfx_hal::Backend> {
     raw: B::Fence,
     is_fake: bool,
 }
 
-pub struct CommandPool<B: hal::Backend> {
+pub struct CommandPool<B: gfx_hal::Backend> {
     pool: B::CommandPool,
     buffers: Vec<VkCommandBuffer>,
 }
@@ -204,17 +204,17 @@ pub struct CommandPool<B: hal::Backend> {
 pub type VkSurfaceKHR = Handle<Surface<B>>;
 pub type VkSwapchainKHR = Handle<Swapchain<B>>;
 
-pub struct Surface<B: hal::Backend> {
+pub struct Surface<B: gfx_hal::Backend> {
     raw: B::Surface,
     swapchain_revision: u32,
 }
 
-pub struct Swapchain<B: hal::Backend> {
+pub struct Swapchain<B: gfx_hal::Backend> {
     surface: VkSurfaceKHR,
-    framebuffer_attachment: hal::image::FramebufferAttachment,
-    frame_count: hal::window::SwapImageIndex,
-    current_index: hal::window::SwapImageIndex,
-    active: Vec<Option<<B::Surface as hal::window::PresentationSurface<B>>::SwapchainImage>>,
+    framebuffer_attachment: gfx_hal::image::FramebufferAttachment,
+    frame_count: gfx_hal::window::SwapImageIndex,
+    current_index: gfx_hal::window::SwapImageIndex,
+    active: Vec<Option<<B::Surface as gfx_hal::window::PresentationSurface<B>>::SwapchainImage>>,
     revision: u32,
 }
 
